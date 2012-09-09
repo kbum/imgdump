@@ -81,6 +81,13 @@ if (-f 'bin_store.ids') {
 if (-f 'net_store.ids') {
    $id_stores{net} = ${retrieve('net_store.ids')};
 }
+if (!-d 'store') {
+   system("mkdir store");
+   system("mkdir store/nsfw");
+}
+if (!-d 'temp') {
+   system("mkdir temp");
+}
 
 print STDERR "imgdump 52: retrieved bin_store.ids for first time.\n";
 print STDERR "imgdump 54: generating all xpms for first time.\n";
