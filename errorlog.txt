@@ -1,0 +1,8 @@
+imgdump 52: retrieved bin_store.ids for first time.
+imgdump 54: generating all xpms for first time.
+id_thread::generate_thumbnails 218: generated all new thumbnails for thread [test]
+imgdump 329: generated thumbnails for all threads
+id_store::updatethread 201: updating thread [test] in store at index [0]
+thread had [15] images
+adding [0] images to thread
+id_store::save 472: mode is [data_dumper] removing unwanted info and saving to bin_store.ids
