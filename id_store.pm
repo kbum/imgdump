@@ -446,7 +446,7 @@ sub print_all {
    
    my $count = 0;
    foreach my $thread (@{$self->{_store}}) {
-      print $count." ".$thread->id_thread::printable($length)."\n";
+      print "index='$count'\n" . $thread->id_thread::printable($length) . "\n";
       
       for (my $i = 1; $i < $spacing; $i++) {
          print "\n";
@@ -555,7 +555,7 @@ sub download_images {
    if ($dest !~ /[\\|\/]$/) {
       $dest .= id_params::fix_path("\/");
    }
-   print "destination [$dest] not found\n" && return 0 if !-e $dest;
+   print "ERROR destination [$dest] not found\n" && return 0 if !-e $dest;
 
    $thread->id_thread::name($name);
    $thread->id_thread::url($url);
@@ -609,10 +609,22 @@ sub download_images {
                        . "-size 100x100 $filename -resize 100x100 "
                        . "-delete 1-1000 temp\/$1\.xpm\n";
 
-            my $img = Image::Xpm->new(-file, "temp\/$1\.xpm") or die;
+            my $img = Image::Xpm->new(-file, "temp\/$1\.xpm"
+            ) or die "could not get image from file [temp\/$1\.xpm]";
+
             $img->set(width => 100);
             $img->save("temp\/$1\.xpm");
-            $thread->id_thread::img_xpms("temp\/$2\.xpm");
+
+            open(IN, "<", "temp\/$1\.xpm");
+            my @lines = <IN>;
+            close(IN);
+            my $xpm_data;
+            foreach my $line (@lines) {
+               $xpm_data .= $line;
+            }
+
+            $thread->id_thread::img_xpms("temp\/$1\.xpm");
+            $thread->id_thread::xpm_data($xpm_data);
          }
 
          $thread->id_thread::img_links($link);
@@ -626,7 +638,10 @@ sub download_images {
    }
 
    $thread->id_thread::img_count($save_count);
-   $thread->id_thread::generate_xpms();
+
+   foreach my $xpm_data (@{$thread->{_xpm_data}}) {
+      print "\n\n$xpm_data\n\n";
+   }
 
    if (defined $save_as) {
       my $single_thread_store = new id_store();
@@ -639,7 +654,7 @@ sub download_images {
             filename => $save_as,
             remove_xpms => 0,
          );
-      }  
+      }
       else {
          $single_thread_store->id_store::save(
             mode => 'data_dumper',
@@ -671,17 +686,12 @@ sub save {
    my %params_def = (
       mode => {
          assign => \$mode,
-         default => 'data_dumper',
+         default => 'normal',
       },
       filename => {
          assign => \$filename,
          default => 'bin_store.ids',
       },
-
-      # remove _img_xpms and _xpm_data from all threads in store
-      # before saving to disk
-      #   1 - remove
-      #   0 - do not remove
       remove_xpms => {
          assign => \$remove_xpms,
          default => 1,
@@ -722,6 +732,72 @@ sub save {
 
       Storable::nstore(\$self, $filename)
    }
+}
+
+# ----- remove_thread
+#
+# remove a thread's information and all images and all thumbnails
+#
+sub remove_thread {
+   my ($self, %params) = @_;
+   my $thread_name;
+   my $remove_count;
+
+   my %params_def = (
+      thread_name => {
+         assign => \$thread_name,
+         default => 'NO NAME',
+      },
+   );
+
+   id_params::assign(\%params, \%params_def);
+
+   if ($thread_name eq "NO NAME") {
+      print "id_store::remove NO THREAD NAME GIVEN\n";
+      return 0;
+   }
+
+   foreach my $thread (@{$self->{_store}}) {
+      next if ($thread->id_thread::name() ne $thread_name);
+
+      print "are you sure you want to remove thread [$thread_name] and all "
+          . "of it's images? [y/N]: ";
+      my $response = 'n';
+      $response = <STDIN>;
+
+      next if ($response !~ /y/i);
+
+      $remove_count++;
+      foreach my $image_name (@{$thread->{_img_names}}) {
+         system("rm -f $image_name");
+      }
+      $thread->{_img_names} = undef;
+      foreach my $xpm_name (@{$thread->{_img_xpms}}) {
+         system("rm -f $xpm_name");
+      }
+      $thread->{_img_xpms} = undef;
+      $thread->{_xpm_data} = undef;
+      $thread->{_thumbnails} = undef;
+      $thread->{_img_count} = 0;
+      $thread->{_url} = undef;
+      $thread->{_dest} = undef;
+
+      my $remove_index = $self->id_store::exists_in(
+         thread_name => $thread_name
+      );
+
+      splice(@{$self->{_store}}, $remove_index, 1);
+
+   }
+
+   if (!$remove_count) {
+      print "no thread named [$thread_name] exists in store\n";
+   }
+   else {
+      print "successfully removed [$thread_name] from store\n";
+   }
+
+   return 1;
 }
 
 1;

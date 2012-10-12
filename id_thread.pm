@@ -71,11 +71,37 @@ sub img_names {
 sub img_xpms {
    my ($self, @img_xpms) = @_;
 
-#   if (!@img_xpms) {
-#      $img_xpms[0] = 'bulldog_pixmap.xpm';
-#   }
    push (@{$self->{_img_xpms}}, @img_xpms) if @img_xpms;
    return $self->{_img_xpms};
+}
+
+sub xpm_data {
+   my ($self, @data) = @_;
+
+   if (defined $data[0]) {
+      print STDERR "data is defined\n";
+      print STDERR "\n\n$data[0]\n\n";
+   }
+   else {
+      print STDERR "data is NOT defined\n";
+   }
+
+   if (@data) {
+      print STDERR "if \@data returned 1!!!\n";
+   }
+
+   push (@{$self->{_xmp_data}}, @data) if @data;
+
+   print STDERR "last index of _xpm_data: $#{$self->{_xpm_data}}\n";
+
+   if (defined $self->{_xpm_data}[0]) {
+      print STDERR "_xpm_data is defined\n";
+   }
+   else {
+      print STDERR "_xpm_data is NOT defined\n";
+   }
+
+   return $self->{_xpm_data};
 }
 
 # ----- generate_xpms
@@ -182,6 +208,7 @@ sub generate_xpms {
                     . "+profile '*' -delete 1-1000 $thumbnail");
             }
          }
+
          if (!-f $thumbnail) {
             print STDERR "id_thread::generate_xpms 138: could not find "
                . "thumnail [$thumbnail] using default\n"
@@ -360,6 +387,50 @@ print STDERR "generating thumbnail for image $self->{_img_xpms}[$index]\n";
    }
 }
 
+# ----- save_xpms
+#
+# saves xpms stored in _xmp_data to disk
+#
+sub save_xpms {
+   my ($self, $length) = @_;
+   my $count = 0;
+   my $save_count = 0;
+
+   print "save_xpms:\n";
+
+   foreach my $img_name (@{$self->{_img_names}}) {
+      print "$self->{_img_xpms}[$count]\n";
+
+      if ($self->{_img_xpms}[$count] =~ /bulldog_pixmap/) {
+         print STDERR "id_thread::save_xpms : 1st\n";
+         $count++;
+         next;
+      }
+
+      if (!defined $self->{_xpm_data}[$count]) {
+         print STDERR "id_thread::save_xpms : 2nd\n";
+         $count++;
+         next;
+      }
+
+      if ($self->{_xpm_data}[$count] =~ /.*bulldog_pixmap/s) {
+         print STDERR "id_thread::save_xpms : 3rd\n";
+         $count++;
+         next;
+      }
+
+      open(OUT, ">", $self->{_img_xpms}[$count]);
+      print OUT $self->{_xpm_data}[$count];
+      close(OUT);
+
+      $count++;
+      $save_count++;
+   }
+   print "id_thread::save_xpms saved [$save_count] xpms\n";
+   return;
+}
+         
+
 # ----- printable
 # params
 #   (none)  - prints only the name url and dest.
@@ -371,24 +442,32 @@ sub printable {
 
    $string = "name='";
    $string .= $self->{_name} if defined($self->{_name});
-   $string .= "' ";
+   $string .= "'\n";
 
-   $string .= "img_count='$self->{_img_count}' " if defined($self->{_img_count});
+   $string .= "img_count='$self->{_img_count}'\n" 
+      if defined($self->{_img_count});
 
-   $string .= "url='$self->{_url}' " if defined($self->{_url});
+   $string .= "url='$self->{_url}'\n" if defined($self->{_url});
    
-   $string .= "dest='$self->{_dest}' " if defined($self->{_dest});
+   $string .= "dest='$self->{_dest}'\n" if defined($self->{_dest});
   
    if (defined($length) && $length =~ /long/i) {
-      $string .= "img_names='@{$self->{_img_names}}' "
-         if @{$self->{_img_names}};
+      $string .= "images in thread '$self->{_name}':\n";
       
-      $string .= "img_links='@{$self->{_img_links}}' " 
-         if @{$self->{_img_links}};
+      my $count = 0;
+      foreach my $image_name (@{$self->{_img_names}}) {
+         $string .= "   index='$count'\n";
 
-      $string .= "img_xpms='@{$self->{_img_xpms}}' "
-         if @{$self->{_img_xpms}};
-      
+         $string .= "   image_name='$self->{_img_names}[$count]'\n"
+            if defined $self->{_img_names}[$count];
+
+         $string .= "   xpm_name='$self->{_img_xpms}[$count]'\n"
+            if defined $self->{_img_xpms}[$count];
+
+         $string .= "   xpm_data='$self->{_xpm_data}[$count]'\n"
+            if defined $self->{_xpm_data}[$count];
+         $count++;
+      }
    }
 
    return $string;
@@ -429,4 +508,3 @@ sub read_line {
    return $self;
 }
 
-1;

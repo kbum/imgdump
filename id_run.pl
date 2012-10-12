@@ -9,6 +9,7 @@ use warnings;
 use threads;
 use threads::shared;
 use id_core;
+use Storable qw (nstore retrieve);
 
 my $url;
 my $dest;
@@ -26,7 +27,7 @@ my %params = @ARGV;
 my %params_def = (
    -dest => {
       assign   => \$dest,
-      default  => "/home/id/store/default/",
+      default  => "store/",
    },
    -url => {
       assign   => \$url,
@@ -46,7 +47,7 @@ my %params_def = (
       assign  => \$no_download,
       default => 0,
    },
-   -config => {
+   -config_type => {
       assign  => \$config_param,
    },
 
@@ -72,11 +73,14 @@ if (defined $mode && $mode eq 'config') { # configure store.ids
       . "   From this user interface you can configure store.ids.\n"
       . "   choose an option from the list\n\n"
       . " PARAMS\n\n"
+      . "   r      - id_store::remove()    - removes specified thread from\n"
+      . "                                    specified store\n\n"
       . "   p      - id_store::print_all() - prints short version of\n"
       . "                                    store.ids contents\n\n"
       . "   P      - id_store::print_all('long') - prints the entire contents of\n"
       . "                                    store.ids\n\n"
       . "   h      - _print_help() - print the help text\n\n"
+      . "   s      - id_store::save()      - save the changes made\n\n"
       . "   Q      - exit\n\n"
   
    );
@@ -85,16 +89,23 @@ if (defined $mode && $mode eq 'config') { # configure store.ids
    if (!defined $config_param) {
       _print_help();
    }
+   $from_file = 'bin_store.ids';
+
+   print "filename to load store from? default [$from_file]: ";
+   my $file = <STDIN>;
+   chomp $file;
+   $from_file = $file if $file ne "";
 
    # get the thread info from store.ids
+   print "loading store from file [$from_file]\n";
    my $main_store = new id_store();
-   $main_store->id_store::read_all();
+   $main_store = ${retrieve($from_file);};
 
    while(!$quit) {
       my $choice;
       if (defined $config_param) {
          $choice = $config_param;
-	 $quit = 1;
+	      $quit = 1;
       }
       else {
          print "enter choice: ";
@@ -107,11 +118,39 @@ if (defined $mode && $mode eq 'config') { # configure store.ids
       }
       elsif ($choice =~ /P/) {
          print "\n----- printing store.ids\n\n";
-         $main_store->id_store::print_all('long');
+         $main_store->id_store::print_all(length => 'long');
       }
 
       elsif ($choice =~ /h/i) {
          _print_help();
+      }
+
+      elsif ($choice =~ /r/i) {
+         print "thread to remove: ";
+         $choice = <STDIN>;
+         chomp($choice);
+
+         $main_store->id_store::remove_thread(
+            thread_name => $choice,
+         );
+      }
+      
+      elsif ($choice =~ /s/i) {
+         my $save_file;
+         $save_file = $save_as if defined $save_as;
+         $save_file = $from_file if !defined $save_file;
+
+         print "name to save file as? default is [$save_file]: ";
+         $choice = 'default';
+         $choice = <STDIN>;
+         chomp($choice);
+
+         $save_file = $choice if $choice ne 'default';
+
+         $main_store->id_store::save(
+            mode => 'data_dumper',
+            filename => $save_file,
+         );
       }
       
       elsif ($choice =~ /q/i) {
@@ -150,13 +189,14 @@ elsif ($modify_store) {
    );
 }
 elsif (defined($mode) && $mode !~ /help|\-h/)  { 
-   id_core::parse_page(
+   my $main_store = new id_store();
+   $main_store = ${retrieve('bin_store.ids');};
+
+   $main_store->id_store::download_images(
       url         => $url,
       dest        => $dest,
       name        => $name,
       save_as     => $save_as,
-      no_mkdir    => $no_mkdir,
-      no_download => $no_download
    );
 }
 else { # help

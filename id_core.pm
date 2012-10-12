@@ -455,8 +455,6 @@ sub display_captcha {
    return if $?;
 
    print STDOUT "got the captcha\n";
-
-#   system("display $outfile &> /dev/null &");
    
    return $challenge;
 }
@@ -491,7 +489,13 @@ sub submit_post {
 
    print "submitting post\n";
    my $mechanize = WWW::Mechanize->new();
+   $mechanize->agent_alias('Linux Mozilla');
    $mechanize->get($url);
+
+   foreach my $form ($mechanize->forms) {
+      print STDERR $form->dump . "\n";
+      map { $_->readonly(0) } $form->inputs();
+   }
    $mechanize->submit_form(
       form_number => 1,
       fields => {
@@ -499,7 +503,7 @@ sub submit_post {
          recaptcha_challenge_field => $challenge,
          recaptcha_response_field => $vericode,
          upfile => $image,
-         pwd => 'dumping',
+         pwd => '12345',
       },
    );
 
@@ -529,6 +533,7 @@ sub submit_post {
    if ($mechanize->content =~ m/too long/i) {
       print "Comment Too Long\n";
    }
+   print STDERR $mechanize->content;
 }
 
 package id_core::clock;
